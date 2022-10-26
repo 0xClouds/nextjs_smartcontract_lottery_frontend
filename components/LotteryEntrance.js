@@ -9,7 +9,12 @@ import { useNotification } from "web3uikit"
 export default function LotteryEntrance() {
     const { chainId: chainIdHex, isWeb3Enabled, Moralis } = useMoralis()
     const chainId = parseInt(chainIdHex)
-    const raffleAddress = chainId ? contractAddresses[chainId][0] : null
+
+    //Compares chainId to the chain the contract is deployed on. This gives the user feedback rather than an error.
+    const raffleAddress =
+        chainId.toString() == Object.keys(contractAddresses)[0]
+            ? contractAddresses[chainId][0]
+            : null
     const [entranceFee, setEntranceFee] = useState("0")
     const [numPlayers, setNumPlayers] = useState("0")
     const [recentWinner, setRecentWinner] = useState("0")
@@ -52,26 +57,32 @@ export default function LotteryEntrance() {
     })
 
     async function updateUI() {
-        const entranceFeeFromCall = (await getEntranceFee()).toString()
-        const numPlayersFromCall = (await getNumberOfPlayers()).toString()
-        const recentWinnerFromCall = await getRecentWinner()
-        setNumPlayers(numPlayersFromCall)
-        setRecentWinner(recentWinnerFromCall)
-        setEntranceFee(entranceFeeFromCall)
+        if (raffleAddress) {
+            const entranceFeeFromCall = (await getEntranceFee()).toString()
+            const numPlayersFromCall = (await getNumberOfPlayers()).toString()
+            const recentWinnerFromCall = await getRecentWinner()
+            setNumPlayers(numPlayersFromCall)
+            setRecentWinner(recentWinnerFromCall)
+            setEntranceFee(entranceFeeFromCall)
+        }
     }
 
     useEffect(() => {
         if (isWeb3Enabled) {
             updateUI()
-            const raffleContract = new ethers.Contract(
-                raffleAddress,
-                abi,
-                provider.web3
-            )
-            raffleContract.on("WinnerPicked", async () => {
-                console.log("Winner Picked!")
-                updateUI()
-            })
+
+            if (raffleAddress) {
+                const raffleContract = new ethers.Contract(
+                    raffleAddress,
+                    abi,
+                    provider.web3
+                )
+
+                raffleContract.on("WinnerPicked", async () => {
+                    console.log("Winner Picked!")
+                    updateUI()
+                })
+            }
         }
         Moralis.onWeb3Enabled((provider) => {
             setProvider(provider)
@@ -125,7 +136,7 @@ export default function LotteryEntrance() {
                     </ul>
                 </div>
             ) : (
-                <div>No raffle address found </div>
+                <div>Please connect to Goerli </div>
             )}
         </div>
     )
